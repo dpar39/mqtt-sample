@@ -1,0 +1,43 @@
+{
+    "name": "cxx-devenv",
+    "dockerFile": "../Dockerfile.devenv",
+    "context": "..",
+    "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "cSpell.diagnosticLevel": "Hint"
+    },
+    "containerUser": "${env:USER}",
+    "remoteUser": "${env:USER}",
+    "extensions": [
+        "twxs.cmake",
+        "vadimcn.vscode-lldb",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "matepek.vscode-catch2-test-adapter",
+        "streetsidesoftware.code-spell-checker",
+        "DavidAnson.vscode-markdownlint",
+        "eamodio.gitlens",
+        "ms-python.python"
+    ],
+    "workspaceFolder": "/workspace",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "mounts": [
+        "source=${env:HOME}/.ssh,target=/home/${env:USER}/.ssh,type=bind",
+        "source=${env:HOME}/.gitconfig,target=/home/${env:USER}/.gitconfig,type=bind",
+        "source=vscode-cxx-extensions,target=/home/${env:USER}/.vscode-server/extensions,type=volume",
+        "source=/,target=/hostfs,type=bind,consistency=delegated"
+    ],
+    "postCreateCommand": "sudo chown -R ${env:USER} /workspace",
+    "build": {
+        "args": {
+            "USER_NAME": "${env:USER}",
+            "USER_UID": "${env:USER_UID}",
+            "USER_GID": "${env:USER_GID}"
+        }
+    },
+    "runArgs": [
+        "-v",
+        "/var/run/docker.sock:/var/run/docker.sock",
+        "-h",
+        "mqtt-dev"
+    ]
+}

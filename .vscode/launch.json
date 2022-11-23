@@ -1,0 +1,29 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug mqtt-sample",
+            "program": "${workspaceFolder}/build_debug/mqtt-sample",
+            "initCommands": [
+                "settings set target.disable-aslr false"
+            ],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "Build Code Debug",
+            "args": [
+                "-m",
+                "hello mqtt"
+            ],
+            "env": {
+                "HOST": "io.adafruit.com",
+                "TOPIC_NAME": "dpar39/feeds/feed-one",
+                "IO_USERNAME": "dpar39",
+                // "IO_KEY": "",
+            }
+        }
+    ]
+}

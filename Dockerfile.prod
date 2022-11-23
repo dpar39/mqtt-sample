@@ -1,0 +1,6 @@
+FROM ubuntu:22.04
+
+WORKDIR /app
+COPY mqtt-sample .
+
+CMD ./mqtt-sample

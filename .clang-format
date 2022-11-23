@@ -1,0 +1,29 @@
+BasedOnStyle: WebKit
+
+BreakBeforeBraces: Mozilla
+ColumnLimit: 120
+FixNamespaceComments: true
+AlwaysBreakTemplateDeclarations: true
+IndentCaseLabels: true
+ConstructorInitializerIndentWidth: 0
+SortIncludes: true
+SortUsingDeclarations: true
+NamespaceIndentation: None
+
+PenaltyBreakAssignment: 100
+PenaltyExcessCharacter: 50
+PenaltyReturnTypeOnItsOwnLine: 10000
+PenaltyBreakFirstLessLess: 0
+PenaltyBreakBeforeFirstCallParameter: 100000
+BinPackParameters: false
+BinPackArguments: false
+AlignAfterOpenBracket: true
+ExperimentalAutoDetectBinPacking: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+PointerAlignment: Middle
+BreakBeforeTernaryOperators: true
+AllowShortFunctionsOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false

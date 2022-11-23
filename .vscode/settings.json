@@ -1,0 +1,10 @@
+{
+    "cmake.generator": "Ninja",
+    "cmake.configureArgs": ["-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"],
+    "cmake.buildDirectory": "${workspaceFolder}/build_debug",    
+    "clangd.arguments": [
+        "--compile-commands-dir=build_debug"
+    ],
+    "cmake.configureOnOpen": true
+
+}
