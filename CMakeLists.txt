@@ -20,4 +20,4 @@ add_executable(mqtt-sample
     src/main.c
     src/pubsub_opts.c
 )
-target_link_libraries(mqtt-sample eclipse-paho-mqtt-c::paho-mqtt3cs-static) 
+target_link_libraries(mqtt-sample eclipse-paho-mqtt-c::paho-mqtt3cs-static m) 

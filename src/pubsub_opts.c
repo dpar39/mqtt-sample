@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int printVersionInfo(pubsub_opts_nameValue * info)
+int printVersionInfo(PubSubOptsNameValue * info)
 {
     int rc = 0;
 
@@ -29,12 +29,13 @@ int printVersionInfo(pubsub_opts_nameValue * info)
         info++;
         rc = 1; /* at least one value printed */
     }
-    if (rc == 1)
+    if (rc == 1) {
         printf("\n");
+    }
     return rc;
 }
 
-void usage(struct pubsub_opts * opts, pubsub_opts_nameValue * name_values, const char * program_name)
+void usage(struct PubSubOpts * opts, PubSubOptsNameValue * name_values, const char * program_name)
 {
     printf("Eclipse Paho MQTT C %s\n", opts->publisher ? "publisher" : "subscriber");
     printVersionInfo(name_values);
@@ -46,8 +47,9 @@ void usage(struct pubsub_opts * opts, pubsub_opts_nameValue * name_values, const
     if (opts->publisher) {
         printf("       [-r] [-n] [-m message] [-f filename]\n");
         printf("       [--maxdatalen len] [--message-expiry seconds] [--user-property name value]\n");
-    } else
+    } else {
         printf("       [-R] [--no-delimiter]\n");
+    }
     printf("       [--will-topic topic] [--will-payload message] [--will-qos qos] [--will-retain]\n");
     printf("       [--cafile filename] [--capath dirname] [--cert filename] [--key filename]\n"
            "       [--keypass string] [--ciphers string] [--insecure]");
@@ -117,7 +119,7 @@ void usage(struct pubsub_opts * opts, pubsub_opts_nameValue * name_values, const
     exit(EXIT_FAILURE);
 }
 
-int getopts(int argc, char ** argv, struct pubsub_opts * opts)
+int getopts(int argc, char ** argv, struct PubSubOpts * opts)
 {
     int count = 1;
 
@@ -293,11 +295,21 @@ int getopts(int argc, char ** argv, struct pubsub_opts * opts)
                     return 1;
             } else
                 return 1;
+        } else if (strcmp(argv[count], "--num-messages") == 0) {
+            if (++count < argc)
+                opts->will_qos = atoi(argv[count]);
+            else
+                return 1;
+        } else if (strcmp(argv[count], "--message-interval") == 0) {
+            if (++count < argc)
+                opts->message_interval_sec = atof(argv[count]);
+            else
+                return 1;
         } else if (opts->publisher == 0) {
             if (strcmp(argv[count], "--no-retained") == 0 || strcmp(argv[count], "-R") == 0)
                 opts->retained = 1;
             else {
-                fprintf(stderr, "Unknown option %s\n", argv[count]);
+                (void)fprintf(stderr, "Unknown option %s\n", argv[count]);
                 return 1;
             }
         } else if (opts->publisher == 1) {
@@ -337,7 +349,6 @@ int getopts(int argc, char ** argv, struct pubsub_opts * opts)
             fprintf(stderr, "Unknown option %s\n", argv[count]);
             return 1;
         }
-
         count++;
     }
 
@@ -347,7 +358,7 @@ int getopts(int argc, char ** argv, struct pubsub_opts * opts)
     return 0;
 }
 
-char * readfile(int * data_len, struct pubsub_opts * opts)
+char * readfile(int * data_len, struct PubSubOpts * opts)
 {
     char * buffer = NULL;
     long filesize = 0L;

@@ -16,13 +16,17 @@
             "preLaunchTask": "Build Code Debug",
             "args": [
                 "-m",
-                "hello mqtt"
+                "hello mqtt",
+                "--message-interval",
+                "3.0",
+                "--verbose"
             ],
             "env": {
-                "HOST": "io.adafruit.com",
-                "TOPIC_NAME": "dpar39/feeds/feed-one",
-                "IO_USERNAME": "dpar39",
-                // "IO_KEY": "",
+                "IO_HOST": "io.adafruit.com",
+                "IO_PORT": "1883",
+                "IO_TOPIC": "dpar39/feeds/feed-one",
+                "IO_USER": "dpar39",
+                "IO_KEY": "<INSERT PASSWORD HERE>",
             }
         }
     ]

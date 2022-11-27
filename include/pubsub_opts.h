@@ -21,7 +21,7 @@
 #include "MQTTAsync.h"
 #include "MQTTClientPersistence.h"
 
-struct pubsub_opts
+struct PubSubOpts
 {
     /* debug app options */
     int publisher; /* publisher app? */
@@ -73,18 +73,21 @@ struct pubsub_opts
     /* HTTP proxies */
     char * http_proxy;
     char * https_proxy;
+
+    float message_interval_sec;
+    int num_messages;
 };
 
 typedef struct
 {
     const char * name;
     const char * value;
-} pubsub_opts_nameValue;
+} PubSubOptsNameValue;
 
 // void usage(struct pubsub_opts* opts, const char* version, const char* program_name);
-void usage(struct pubsub_opts * opts, pubsub_opts_nameValue * name_values, const char * program_name);
-int getopts(int argc, char ** argv, struct pubsub_opts * opts);
-char * readfile(int * data_len, struct pubsub_opts * opts);
+void usage(struct PubSubOpts * opts, PubSubOptsNameValue * name_values, const char * program_name);
+int getopts(int argc, char ** argv, struct PubSubOpts * opts);
+char * readfile(int * data_len, struct PubSubOpts * opts);
 void logProperties(MQTTProperties * props);
 
 #endif

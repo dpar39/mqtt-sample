@@ -19,10 +19,16 @@
 #include "MQTTClientPersistence.h"
 #include "pubsub_opts.h"
 
+#include <inttypes.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <tgmath.h>
+#include <time.h>
+
+#include <unistd.h>
 
 #if defined(_WIN32)
 #define sleep Sleep
@@ -38,47 +44,62 @@ void cfinish(int sig)
     ToStop = 1;
 }
 
-struct pubsub_opts opts = {
-    1,
-    0,
-    0,
-    0,
-    "\n",
-    100, /* debug/app options */
-    NULL,
-    NULL,
-    1,
-    0,
-    0, /* message options */
-    MQTTVERSION_DEFAULT,
-    NULL,
-    "paho-cs-pub",
-    0,
-    0,
-    NULL,
-    NULL,
-    "localhost",
-    "1883",
-    NULL,
-    10, /* MQTT options */
-    NULL,
-    NULL,
-    0,
-    0, /* will options */
-    0,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL, /* TLS options */
-    0,
-    { NULL, NULL }, /* MQTT V5 options */
-    NULL,
-    NULL, /* HTTP and HTTPS proxies */
-};
+int64_t get_microseconds()
+{
+    struct timespec tms;
+    if (!timespec_get(&tms, TIME_UTC)) {
+        return -1;
+    }
+    return tms.tv_sec * 1000000 + llround(tms.tv_nsec / 1000.0);
+}
+
+char * getEnvVar(char * varName, char * defaultValue)
+{
+    char * varValue = getenv(varName);
+    return varValue ? varValue : defaultValue;
+}
+
+struct PubSubOpts opts = { 1,
+                           0,
+                           0,
+                           0,
+                           "\n",
+                           100, /* debug/app options */
+                           NULL,
+                           NULL,
+                           1,
+                           0,
+                           0, /* message options */
+                           MQTTVERSION_DEFAULT,
+                           NULL,
+                           "paho-cs-pub",
+                           0,
+                           0,
+                           NULL,
+                           NULL,
+                           "localhost",
+                           "1883",
+                           NULL,
+                           10, /* MQTT options */
+                           NULL,
+                           NULL,
+                           0,
+                           0, /* will options */
+                           0,
+                           NULL,
+                           NULL,
+                           NULL,
+                           NULL,
+                           NULL,
+                           NULL,
+                           NULL,
+                           NULL, /* TLS options */
+                           0,
+                           { NULL, NULL }, /* MQTT V5 options */
+                           NULL,
+                           NULL, /* HTTP and HTTPS proxies */
+                           3.f, /* send a message every 3 seconds */
+                           0 /* send messages until stopped */ };
 
 int myconnect(MQTTClient client)
 {
@@ -161,6 +182,33 @@ void traceCallback(enum MQTTCLIENT_TRACE_LEVELS level, char * message)
     fprintf(stderr, "Trace : %d, %s\n", level, message);
 }
 
+void initializeOptionsFromEnvironmentVars()
+{
+    opts.username = getEnvVar("IO_USER", NULL);
+    opts.password = getEnvVar("IO_KEY", NULL);
+    opts.host = getEnvVar("IO_HOST", "localhost");
+    opts.port = getEnvVar("IO_PORT", "1883");
+    opts.topic = getEnvVar("IO_TOPIC", NULL);
+}
+
+void addUserProperties(MQTTProperties * pubProps)
+{
+    MQTTProperty property;
+    if (opts.message_expiry > 0) {
+        property.identifier = MQTTPROPERTY_CODE_MESSAGE_EXPIRY_INTERVAL;
+        property.value.integer4 = opts.message_expiry;
+        MQTTProperties_add(pubProps, &property);
+    }
+    if (opts.user_property.name) {
+        property.identifier = MQTTPROPERTY_CODE_USER_PROPERTY;
+        property.value.data.data = opts.user_property.name;
+        property.value.data.len = (int)strlen(opts.user_property.name);
+        property.value.value.data = opts.user_property.value;
+        property.value.value.len = (int)strlen(opts.user_property.value);
+        MQTTProperties_add(pubProps, &property);
+    }
+}
+
 int main(int argc, char ** argv)
 {
     MQTTClient client;
@@ -171,27 +219,31 @@ int main(int argc, char ** argv)
     int rc = 0;
     char * url;
     const char * version = NULL;
+    int numMessagesSent = 0;
 #if !defined(_WIN32)
     struct sigaction sa;
 #endif
     const char * program_name = "paho_cs_pub";
     MQTTClient_nameValue * infos = MQTTClient_getVersionInfo();
 
+    initializeOptionsFromEnvironmentVars();
+
     if (argc < 2) {
-        usage(&opts, (pubsub_opts_nameValue *)infos, program_name);
-}
+        usage(&opts, (PubSubOptsNameValue *)infos, program_name);
+    }
 
-    if (getopts(argc, argv, &opts) != 0)
-        usage(&opts, (pubsub_opts_nameValue *)infos, program_name);
+    if (getopts(argc, argv, &opts) != 0) {
+        usage(&opts, (PubSubOptsNameValue *)infos, program_name);
+    }
 
-    if (opts.connection)
+    if (opts.connection) {
         url = opts.connection;
-    else {
+    } else {
         url = malloc(100);
-        sprintf(url, "%s:%s", opts.host, opts.port);
+        (void)sprintf(url, "%s:%s", opts.host, opts.port);
     }
     if (opts.verbose)
-        printf("URL is %s\n", url);
+        fprintf("URL is %s\n", url);
 
     if (opts.tracelevel > 0) {
         MQTTClient_setTraceCallback(traceCallback);
@@ -234,22 +286,10 @@ int main(int argc, char ** argv)
     }
 
     if (opts.MQTTVersion >= MQTTVERSION_5) {
-        MQTTProperty property;
-
-        if (opts.message_expiry > 0) {
-            property.identifier = MQTTPROPERTY_CODE_MESSAGE_EXPIRY_INTERVAL;
-            property.value.integer4 = opts.message_expiry;
-            MQTTProperties_add(&pubProps, &property);
-        }
-        if (opts.user_property.name) {
-            property.identifier = MQTTPROPERTY_CODE_USER_PROPERTY;
-            property.value.data.data = opts.user_property.name;
-            property.value.data.len = (int)strlen(opts.user_property.name);
-            property.value.value.data = opts.user_property.value;
-            property.value.value.len = (int)strlen(opts.user_property.value);
-            MQTTProperties_add(&pubProps, &property);
-        }
+        addUserProperties(&pubProps);
     }
+
+    double start_us = get_microseconds();
 
     while (!ToStop) {
         int dataLen = 0;
@@ -257,11 +297,9 @@ int main(int argc, char ** argv)
 
         if (opts.stdin_lines) {
             buffer = malloc(opts.maxdatalen);
-
             delimLen = (int)strlen(opts.delimiter);
             do {
                 int c = getchar();
-
                 if (c < 0) {
                     goto exit;
                 }
@@ -273,8 +311,10 @@ int main(int argc, char ** argv)
                 }
             } while (dataLen < opts.maxdatalen);
         } else if (opts.message) {
-            buffer = opts.message;
-            dataLen = (int)strlen(opts.message);
+            if (buffer == NULL) {
+                buffer = malloc((int)strlen(opts.message) + 100);
+            }
+            dataLen = sprintf(buffer, "%s #%d", opts.message, numMessagesSent);
         } else if (opts.filename) {
             buffer = readfile(&dataLen, &opts);
             if (buffer == NULL) {
@@ -282,12 +322,11 @@ int main(int argc, char ** argv)
             }
         }
         if (opts.verbose) {
-            fprintf(stderr, "Publishing data of length %d\n", dataLen);
+            (void)fprintf(stderr, "Publishing data of length %d\n", dataLen);
         }
 
         if (opts.MQTTVersion == MQTTVERSION_5) {
             MQTTResponse response = MQTTResponse_initializer;
-
             response = MQTTClient_publish5(client,
                                            opts.topic,
                                            dataLen,
@@ -300,8 +339,18 @@ int main(int argc, char ** argv)
         } else {
             rc = MQTTClient_publish(client, opts.topic, dataLen, buffer, opts.qos, opts.retained, &lastToken);
         }
-        if (opts.stdin_lines == 0) {
+
+        ++numMessagesSent;
+        if (opts.num_messages > 0 && numMessagesSent >= opts.num_messages) {
+            ToStop = 1;
             break;
+        }
+
+        int64_t elapsed_us = get_microseconds() - start_us;
+        int64_t to_sleep_us = opts.message_interval_sec * 1000000.0 * numMessagesSent - elapsed_us;
+        if (to_sleep_us >= 0) {
+            (void)fprintf(stdout, "Sleeping for %" PRId64 " us ...\n", to_sleep_us);
+            usleep(to_sleep_us);
         }
 
         if (rc != 0) {
@@ -330,9 +379,7 @@ int main(int argc, char ** argv)
     rc = MQTTClient_waitForCompletion(client, lastToken, 5000);
 
 exit:
-    if (opts.filename || opts.stdin_lines) {
-        free(buffer);
-    }
+    free(buffer);
 
     if (opts.MQTTVersion == MQTTVERSION_5) {
         rc = MQTTClient_disconnect5(client, 0, MQTTREASONCODE_SUCCESS, NULL);
