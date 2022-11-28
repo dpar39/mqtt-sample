@@ -8,6 +8,7 @@ if(CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif(CCACHE_FOUND)
 
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc")
 
@@ -17,7 +18,10 @@ find_package(eclipse-paho-mqtt-c REQUIRED)
 include_directories(include)
 
 add_executable(mqtt-sample
-    src/main.c
-    src/pubsub_opts.c
+    src/main.cpp
+    #src/main.c
+    #src/pubsub_opts.c
 )
-target_link_libraries(mqtt-sample eclipse-paho-mqtt-c::paho-mqtt3cs-static m) 
+
+# target_link_libraries(mqtt-sample eclipse-paho-mqtt-c::paho-mqtt3cs-static m)
+target_link_libraries(mqtt-sample mosquitto_static m ssl crypto) 

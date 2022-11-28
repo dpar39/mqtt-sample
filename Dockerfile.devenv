@@ -39,6 +39,33 @@ RUN wget https://github.com/eclipse/paho.mqtt.c/archive/refs/tags/v${PAHO_MQTT_V
     && rm -rf build_dir \
     && rm -rf paho.mqtt.c-${PAHO_MQTT_VERSION}
 
+# Build and install cJSON
+ENV CJSON_VERSION=1.7.15
+RUN wget https://github.com/DaveGamble/cJSON/archive/refs/tags/v${CJSON_VERSION}.tar.gz -O - |tar -zx \
+    && cmake -G Ninja -Bbuild_dir \
+        -DENABLE_CJSON_TEST=OFF  \
+        -DENABLE_CJSON_UTILS=OFF \
+        -DBUILD_SHARED_AND_STATIC_LIBS=ON  \
+        -DBUILD_SHARED_LIBS=OFF  \
+        cJSON-${CJSON_VERSION} \
+    && cmake --build build_dir \
+    && cmake --build build_dir --target install \
+    && rm -rf build_dir \
+    && rm -rf cJSON-${CJSON_VERSION}
+
+# Build and install Mosquitto
+ENV MOSQUITTO_VERSION=2.0.15
+RUN wget https://github.com/eclipse/mosquitto/archive/refs/tags/v${MOSQUITTO_VERSION}.tar.gz -O - |tar -zx \
+    && cmake -G Ninja -Bbuild_dir \
+        -DDOCUMENTATION=OFF \
+        -DWITH_STATIC_LIBRARIES=ON  \
+        -DWITH_PIC=ON  \        
+        mosquitto-${MOSQUITTO_VERSION} \
+    && cmake --build build_dir \
+    && cmake --build build_dir --target install \
+    && rm -rf build_dir \
+    && rm -rf mosquitto-${MOSQUITTO_VERSION}
+
 ##################################################
 # Create the playpen user
 ##################################################
