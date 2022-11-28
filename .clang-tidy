@@ -77,22 +77,22 @@ CheckOptions:
   - { key: readability-identifier-naming.GlobalFunctionCase, value: camelBack }
   - { key: readability-identifier-naming.GlobalPointerCase, value: CamelCase }
   - { key: readability-identifier-naming.GlobalVariableCase, value: CamelCase }
-  - { key: readability-identifier-naming.LocalConstantCase, value: camelBack }
+  - { key: readability-identifier-naming.LocalConstantCase, value: lower_case }
   - { key: readability-identifier-naming.LocalConstantPointerCase, value: camelBack }
-  - { key: readability-identifier-naming.LocalPointerCase, value: camelBack }
-  - { key: readability-identifier-naming.LocalVariableCase, value: camelBack }
+  - { key: readability-identifier-naming.LocalPointerCase, value: lower_case }
+  - { key: readability-identifier-naming.LocalVariableCase, value: lower_case }
   - { key: readability-identifier-naming.MacroDefinitionCase, value: UPPER_CASE }
   - { key: readability-identifier-naming.MemberCase, value: camelBack }
   - { key: readability-identifier-naming.MethodCase, value: camelBack }
   - { key: readability-identifier-naming.NamespaceCase, value: camelBack }
-  - { key: readability-identifier-naming.ParameterCase, value: camelBack }
+  - { key: readability-identifier-naming.ParameterCase, value: lower_case }
   - { key: readability-identifier-naming.ParameterPackCase, value: camelBack }
-  - { key: readability-identifier-naming.PointerParameterCase, value: camelBack }
+  - { key: readability-identifier-naming.PointerParameterCase, value: lower_case }
   - { key: readability-identifier-naming.PrivateMemberCase, value: camelBack }
   - { key: readability-identifier-naming.PrivateMethodCase, value: camelBack }
   - { key: readability-identifier-naming.ProtectedMemberCase, value: camelBack }
   - { key: readability-identifier-naming.ProtectedMethodCase, value: camelBack }
-  - { key: readability-identifier-naming.PublicMemberCase, value: camelBack }
+  - { key: readability-identifier-naming.PublicMemberCase, value: lower_case }
   - { key: readability-identifier-naming.PublicMethodCase, value: camelBack }
   - { key: readability-identifier-naming.ScopedEnumConstantCase, value: UPPER_CASE }
   - { key: readability-identifier-naming.StaticConstantCase, value: camelBack }

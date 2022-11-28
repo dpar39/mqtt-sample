@@ -37,7 +37,7 @@ struct PubSubOpts
     int stdlin_complete;
     int null_message;
     /* MQTT options */
-    int MQTTVersion;
+    int mqtt_version;
     char * topic;
     char * clientid;
     int qos;
@@ -75,7 +75,7 @@ struct PubSubOpts
     char * https_proxy;
 
     float message_interval_sec;
-    int num_messages;
+    int message_count;
 };
 
 typedef struct

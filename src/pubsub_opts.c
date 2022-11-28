@@ -272,11 +272,11 @@ int getopts(int argc, char ** argv, struct PubSubOpts * opts)
         } else if (strcmp(argv[count], "-V") == 0) {
             if (++count < argc) {
                 if (strcmp(argv[count], "mqttv31") == 0 || strcmp(argv[count], "31") == 0)
-                    opts->MQTTVersion = MQTTVERSION_3_1;
+                    opts->mqtt_version = MQTTVERSION_3_1;
                 else if (strcmp(argv[count], "mqttv311") == 0 || strcmp(argv[count], "311") == 0)
-                    opts->MQTTVersion = MQTTVERSION_3_1_1;
+                    opts->mqtt_version = MQTTVERSION_3_1_1;
                 else if (strcmp(argv[count], "mqttv5") == 0 || strcmp(argv[count], "5") == 0)
-                    opts->MQTTVersion = MQTTVERSION_5;
+                    opts->mqtt_version = MQTTVERSION_5;
                 else
                     return 1;
             } else
@@ -295,9 +295,9 @@ int getopts(int argc, char ** argv, struct PubSubOpts * opts)
                     return 1;
             } else
                 return 1;
-        } else if (strcmp(argv[count], "--num-messages") == 0) {
+        } else if (strcmp(argv[count], "--message-count") == 0) {
             if (++count < argc)
-                opts->will_qos = atoi(argv[count]);
+                opts->message_count = atoi(argv[count]);
             else
                 return 1;
         } else if (strcmp(argv[count], "--message-interval") == 0) {

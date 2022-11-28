@@ -44,7 +44,7 @@ void cfinish(int sig)
     ToStop = 1;
 }
 
-int64_t get_microseconds()
+int64_t getMicroseconds()
 {
     struct timespec tms;
     if (!timespec_get(&tms, TIME_UTC)) {
@@ -53,10 +53,10 @@ int64_t get_microseconds()
     return tms.tv_sec * 1000000 + llround(tms.tv_nsec / 1000.0);
 }
 
-char * getEnvVar(char * varName, char * defaultValue)
+char * getEnvVar(char * var_name, char * default_value)
 {
-    char * varValue = getenv(varName);
-    return varValue ? varValue : defaultValue;
+    char * var_value = getenv(var_name);
+    return var_value ? var_value : default_value;
 }
 
 struct PubSubOpts opts = { 1,
@@ -101,77 +101,96 @@ struct PubSubOpts opts = { 1,
                            3.f, /* send a message every 3 seconds */
                            0 /* send messages until stopped */ };
 
-int myconnect(MQTTClient client)
+int mqttConnect(MQTTClient client)
 {
-    MQTTClient_connectOptions connOpts = MQTTClient_connectOptions_initializer;
-    MQTTClient_SSLOptions sslOpts = MQTTClient_SSLOptions_initializer;
-    MQTTClient_willOptions willOpts = MQTTClient_willOptions_initializer;
+    MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
+    MQTTClient_SSLOptions ssl_opts = MQTTClient_SSLOptions_initializer;
+    MQTTClient_willOptions will_opts = MQTTClient_willOptions_initializer;
     int rc = 0;
 
     if (opts.verbose) {
-        printf("Connecting\n");
+        printf("Connecting...\n");
     }
 
-    if (opts.MQTTVersion == MQTTVERSION_5) {
-        MQTTClient_connectOptions connOpts5 = MQTTClient_connectOptions_initializer5;
-        connOpts = connOpts5;
+    if (opts.mqtt_version == MQTTVERSION_5) {
+        MQTTClient_connectOptions conn_opts5 = MQTTClient_connectOptions_initializer5;
+        conn_opts = conn_opts5;
     }
 
-    connOpts.keepAliveInterval = opts.keepalive;
-    connOpts.username = opts.username;
-    connOpts.password = opts.password;
-    connOpts.MQTTVersion = opts.MQTTVersion;
-    connOpts.httpProxy = opts.http_proxy;
-    connOpts.httpsProxy = opts.https_proxy;
+    conn_opts.keepAliveInterval = opts.keepalive;
+    conn_opts.username = opts.username;
+    conn_opts.password = opts.password;
+    conn_opts.MQTTVersion = opts.mqtt_version;
+    conn_opts.httpProxy = opts.http_proxy;
+    conn_opts.httpsProxy = opts.https_proxy;
 
     if (opts.will_topic) /* will options */
     {
-        willOpts.message = opts.will_payload;
-        willOpts.topicName = opts.will_topic;
-        willOpts.qos = opts.will_qos;
-        willOpts.retained = opts.will_retain;
-        connOpts.will = &willOpts;
+        will_opts.message = opts.will_payload;
+        will_opts.topicName = opts.will_topic;
+        will_opts.qos = opts.will_qos;
+        will_opts.retained = opts.will_retain;
+        conn_opts.will = &will_opts;
     }
 
     if (opts.connection && (strncmp(opts.connection, "ssl://", 6) == 0 || strncmp(opts.connection, "wss://", 6) == 0)) {
         if (opts.insecure) {
-            sslOpts.verify = 0;
+            ssl_opts.verify = 0;
         } else {
-            sslOpts.verify = 1;
+            ssl_opts.verify = 1;
         }
-        sslOpts.CApath = opts.capath;
-        sslOpts.keyStore = opts.cert;
-        sslOpts.trustStore = opts.cafile;
-        sslOpts.privateKey = opts.key;
-        sslOpts.privateKeyPassword = opts.keypass;
-        sslOpts.enabledCipherSuites = opts.ciphers;
-        connOpts.ssl = &sslOpts;
+        ssl_opts.CApath = opts.capath;
+        ssl_opts.keyStore = opts.cert;
+        ssl_opts.trustStore = opts.cafile;
+        ssl_opts.privateKey = opts.key;
+        ssl_opts.privateKeyPassword = opts.keypass;
+        ssl_opts.enabledCipherSuites = opts.ciphers;
+        conn_opts.ssl = &ssl_opts;
     }
 
-    if (opts.MQTTVersion == MQTTVERSION_5) {
+    if (opts.mqtt_version == MQTTVERSION_5) {
         MQTTProperties props = MQTTProperties_initializer;
-        MQTTProperties willProps = MQTTProperties_initializer;
+        MQTTProperties will_props = MQTTProperties_initializer;
         MQTTResponse response = MQTTResponse_initializer;
 
-        connOpts.cleanstart = 1;
-        response = MQTTClient_connect5(client, &connOpts, &props, &willProps);
+        conn_opts.cleanstart = 1;
+        response = MQTTClient_connect5(client, &conn_opts, &props, &will_props);
         rc = response.reasonCode;
         MQTTResponse_free(response);
     } else {
-        connOpts.cleansession = 1;
-        rc = MQTTClient_connect(client, &connOpts);
+        conn_opts.cleansession = 1;
+        rc = MQTTClient_connect(client, &conn_opts);
     }
 
     if (opts.verbose && rc == MQTTCLIENT_SUCCESS) {
-        printf("Connected\n");
+        printf("Connected!\n");
     } else if (rc != MQTTCLIENT_SUCCESS && !opts.quiet) {
-        fprintf(stderr, "Connect failed return code: %s\n", MQTTClient_strerror(rc));
+        (void)fprintf(stderr, "Connect failed return code: %s\n", MQTTClient_strerror(rc));
     }
 
     return rc;
 }
 
-int messageArrived(void * context, char * topicName, int topicLen, MQTTClient_message * m)
+void mqttDisconnect(MQTTClient * client)
+{
+    int rc = 0;
+    if (opts.verbose) {
+        printf("Disconnecting...\n");
+    }
+    if (opts.mqtt_version == MQTTVERSION_5) {
+        rc = MQTTClient_disconnect5(*client, 0, MQTTREASONCODE_SUCCESS, NULL);
+    } else {
+        rc = MQTTClient_disconnect(*client, 0);
+    }
+
+    if (opts.verbose) {
+        printf("Disconnected!\n");
+    }
+    MQTTClient_destroy(client);
+}
+
+// NOLINTNEXTLINE(misc-unused-parameters)
+int messageArrived(void * context, char * topic_name, int topic_len, MQTTClient_message * m)
 {
     /* not expecting any messages */
     return 1;
@@ -179,7 +198,7 @@ int messageArrived(void * context, char * topicName, int topicLen, MQTTClient_me
 
 void traceCallback(enum MQTTCLIENT_TRACE_LEVELS level, char * message)
 {
-    fprintf(stderr, "Trace : %d, %s\n", level, message);
+    (void)fprintf(stderr, "Trace : %d, %s\n", level, message);
 }
 
 void initializeOptionsFromEnvironmentVars()
@@ -191,13 +210,13 @@ void initializeOptionsFromEnvironmentVars()
     opts.topic = getEnvVar("IO_TOPIC", NULL);
 }
 
-void addUserProperties(MQTTProperties * pubProps)
+void addUserProperties(MQTTProperties * pub_props)
 {
     MQTTProperty property;
     if (opts.message_expiry > 0) {
         property.identifier = MQTTPROPERTY_CODE_MESSAGE_EXPIRY_INTERVAL;
         property.value.integer4 = opts.message_expiry;
-        MQTTProperties_add(pubProps, &property);
+        MQTTProperties_add(pub_props, &property);
     }
     if (opts.user_property.name) {
         property.identifier = MQTTPROPERTY_CODE_USER_PROPERTY;
@@ -205,21 +224,21 @@ void addUserProperties(MQTTProperties * pubProps)
         property.value.data.len = (int)strlen(opts.user_property.name);
         property.value.value.data = opts.user_property.value;
         property.value.value.len = (int)strlen(opts.user_property.value);
-        MQTTProperties_add(pubProps, &property);
+        MQTTProperties_add(pub_props, &property);
     }
 }
 
 int main(int argc, char ** argv)
 {
     MQTTClient client;
-    MQTTProperties pubProps = MQTTProperties_initializer;
-    MQTTClient_createOptions createOpts = MQTTClient_createOptions_initializer;
-    MQTTClient_deliveryToken lastToken;
+    MQTTProperties pub_props = MQTTProperties_initializer;
+    MQTTClient_createOptions create_opts = MQTTClient_createOptions_initializer;
+    MQTTClient_deliveryToken last_token;
     char * buffer = NULL;
     int rc = 0;
     char * url;
     const char * version = NULL;
-    int numMessagesSent = 0;
+    int num_messages_sent = 0;
 #if !defined(_WIN32)
     struct sigaction sa;
 #endif
@@ -242,21 +261,22 @@ int main(int argc, char ** argv)
         url = malloc(100);
         (void)sprintf(url, "%s:%s", opts.host, opts.port);
     }
-    if (opts.verbose)
-        fprintf("URL is %s\n", url);
+    if (opts.verbose) {
+        (void)fprintf(stdout, "URL is %s\n", url);
+    }
 
     if (opts.tracelevel > 0) {
         MQTTClient_setTraceCallback(traceCallback);
         MQTTClient_setTraceLevel(opts.tracelevel);
     }
 
-    if (opts.MQTTVersion >= MQTTVERSION_5) {
-        createOpts.MQTTVersion = MQTTVERSION_5;
+    if (opts.mqtt_version >= MQTTVERSION_5) {
+        create_opts.MQTTVersion = MQTTVERSION_5;
     }
-    rc = MQTTClient_createWithOptions(&client, url, opts.clientid, MQTTCLIENT_PERSISTENCE_NONE, NULL, &createOpts);
+    rc = MQTTClient_createWithOptions(&client, url, opts.clientid, MQTTCLIENT_PERSISTENCE_NONE, NULL, &create_opts);
     if (rc != MQTTCLIENT_SUCCESS) {
         if (!opts.quiet) {
-            fprintf(stderr, "Failed to create client, return code: %s\n", MQTTClient_strerror(rc));
+            (void)fprintf(stderr, "Failed to create client, return code: %s\n", MQTTClient_strerror(rc));
         }
         exit(EXIT_FAILURE);
     }
@@ -276,99 +296,99 @@ int main(int argc, char ** argv)
     rc = MQTTClient_setCallbacks(client, NULL, NULL, messageArrived, NULL);
     if (rc != MQTTCLIENT_SUCCESS) {
         if (!opts.quiet) {
-            fprintf(stderr, "Failed to set callbacks, return code: %s\n", MQTTClient_strerror(rc));
+            (void)fprintf(stderr, "Failed to set callbacks, return code: %s\n", MQTTClient_strerror(rc));
         }
         exit(EXIT_FAILURE);
     }
 
-    if (myconnect(client) != MQTTCLIENT_SUCCESS) {
+    if (mqttConnect(client) != MQTTCLIENT_SUCCESS) {
         goto exit;
     }
 
-    if (opts.MQTTVersion >= MQTTVERSION_5) {
-        addUserProperties(&pubProps);
+    if (opts.mqtt_version >= MQTTVERSION_5) {
+        addUserProperties(&pub_props);
     }
 
-    double start_us = get_microseconds();
+    double start_us = getMicroseconds();
 
     while (!ToStop) {
-        int dataLen = 0;
-        int delimLen = 0;
+        int data_len = 0;
+        int delim_len = 0;
 
         if (opts.stdin_lines) {
             buffer = malloc(opts.maxdatalen);
-            delimLen = (int)strlen(opts.delimiter);
+            delim_len = (int)strlen(opts.delimiter);
             do {
                 int c = getchar();
                 if (c < 0) {
                     goto exit;
                 }
-                buffer[dataLen++] = c;
-                if (dataLen > delimLen) {
-                    if (strncmp(opts.delimiter, &buffer[dataLen - delimLen], delimLen) == 0) {
+                buffer[data_len++] = c;
+                if (data_len > delim_len) {
+                    if (strncmp(opts.delimiter, &buffer[data_len - delim_len], delim_len) == 0) {
                         break;
                     }
                 }
-            } while (dataLen < opts.maxdatalen);
+            } while (data_len < opts.maxdatalen);
         } else if (opts.message) {
             if (buffer == NULL) {
                 buffer = malloc((int)strlen(opts.message) + 100);
             }
-            dataLen = sprintf(buffer, "%s #%d", opts.message, numMessagesSent);
+            data_len = sprintf(buffer, "%s #%d", opts.message, num_messages_sent);
         } else if (opts.filename) {
-            buffer = readfile(&dataLen, &opts);
+            buffer = readfile(&data_len, &opts);
             if (buffer == NULL) {
                 goto exit;
             }
         }
         if (opts.verbose) {
-            (void)fprintf(stderr, "Publishing data of length %d\n", dataLen);
+            (void)fprintf(stderr, "Publishing data of length %d\n", data_len);
         }
 
-        if (opts.MQTTVersion == MQTTVERSION_5) {
+        if (opts.mqtt_version == MQTTVERSION_5) {
             MQTTResponse response = MQTTResponse_initializer;
             response = MQTTClient_publish5(client,
                                            opts.topic,
-                                           dataLen,
+                                           data_len,
                                            buffer,
                                            opts.qos,
                                            opts.retained,
-                                           &pubProps,
-                                           &lastToken);
+                                           &pub_props,
+                                           &last_token);
             rc = response.reasonCode;
         } else {
-            rc = MQTTClient_publish(client, opts.topic, dataLen, buffer, opts.qos, opts.retained, &lastToken);
+            rc = MQTTClient_publish(client, opts.topic, data_len, buffer, opts.qos, opts.retained, &last_token);
         }
 
-        ++numMessagesSent;
-        if (opts.num_messages > 0 && numMessagesSent >= opts.num_messages) {
+        ++num_messages_sent;
+        if (opts.message_count > 0 && num_messages_sent >= opts.message_count) {
             ToStop = 1;
             break;
         }
 
-        int64_t elapsed_us = get_microseconds() - start_us;
-        int64_t to_sleep_us = opts.message_interval_sec * 1000000.0 * numMessagesSent - elapsed_us;
+        int64_t elapsed_us = getMicroseconds() - start_us;
+        int64_t to_sleep_us = opts.message_interval_sec * 1000000.0 * num_messages_sent - elapsed_us;
         if (to_sleep_us >= 0) {
             (void)fprintf(stdout, "Sleeping for %" PRId64 " us ...\n", to_sleep_us);
             usleep(to_sleep_us);
         }
 
         if (rc != 0) {
-            myconnect(client);
-            if (opts.MQTTVersion == MQTTVERSION_5) {
+            mqttConnect(client);
+            if (opts.mqtt_version == MQTTVERSION_5) {
                 MQTTResponse response = MQTTResponse_initializer;
 
                 response = MQTTClient_publish5(client,
                                                opts.topic,
-                                               dataLen,
+                                               data_len,
                                                buffer,
                                                opts.qos,
                                                opts.retained,
-                                               &pubProps,
-                                               &lastToken);
+                                               &pub_props,
+                                               &last_token);
                 rc = response.reasonCode;
             } else {
-                rc = MQTTClient_publish(client, opts.topic, dataLen, buffer, opts.qos, opts.retained, &lastToken);
+                rc = MQTTClient_publish(client, opts.topic, data_len, buffer, opts.qos, opts.retained, &last_token);
             }
         }
         if (opts.qos > 0) {
@@ -376,18 +396,12 @@ int main(int argc, char ** argv)
         }
     }
 
-    rc = MQTTClient_waitForCompletion(client, lastToken, 5000);
+    rc = MQTTClient_waitForCompletion(client, last_token, 5000);
 
 exit:
     free(buffer);
 
-    if (opts.MQTTVersion == MQTTVERSION_5) {
-        rc = MQTTClient_disconnect5(client, 0, MQTTREASONCODE_SUCCESS, NULL);
-    } else {
-        rc = MQTTClient_disconnect(client, 0);
-    }
-
-    MQTTClient_destroy(&client);
+    mqttDisconnect(&client);
 
     return EXIT_SUCCESS;
 }

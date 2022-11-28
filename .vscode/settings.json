@@ -1,10 +1,19 @@
 {
     "cmake.generator": "Ninja",
-    "cmake.configureArgs": ["-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"],
     "cmake.buildDirectory": "${workspaceFolder}/build_debug",    
     "clangd.arguments": [
         "--compile-commands-dir=build_debug"
     ],
-    "cmake.configureOnOpen": true
+    "cmake.configureOnOpen": true,
+    "cSpell.customDictionaries": {
+        "project-words": {
+            "name": "project-words",
+            "path": "${workspaceRoot}/project-words.txt",
+            "description": "Words used in this project",
+            "addWords": true
+          },
+          "custom": true, // Enable the `custom` dictionary
+          "internal-terms": false // Disable the `internal-terms` dictionary
+    }
 
 }
