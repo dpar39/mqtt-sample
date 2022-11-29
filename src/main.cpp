@@ -181,14 +181,18 @@ int main(int argc, char * argv[])
     std::thread publisher([&] {
         int num_messages = 0;
         std::mutex m;
-        auto start_tp = std::chrono::steady_clock::now();
         auto period_us = std::chrono::microseconds(static_cast<int64_t>(message_period_sec * 1000000));
+        {
+            std::unique_lock lk(m);
+            SyncConditionVar.wait_for(lk, period_us, []() -> bool { return StopPublisherLoop; });
+        }
+        auto start_tp = std::chrono::steady_clock::now();
         while ((num_messages_to_send <= 0 || num_messages < num_messages_to_send) && !StopPublisherLoop) {
             publishSensorData(mosq, publish_topic);
             ++num_messages;
             auto sleep_until = start_tp + num_messages * period_us;
-            std::unique_lock lock(m);
-            SyncConditionVar.wait_until(lock, sleep_until, []() -> bool { return StopPublisherLoop; });
+            std::unique_lock lk(m);
+            SyncConditionVar.wait_until(lk, sleep_until, []() -> bool { return StopPublisherLoop; });
         }
     });
     publisher.join();
