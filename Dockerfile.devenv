@@ -18,6 +18,7 @@ RUN apt-get update --fix-missing \
         software-properties-common \
         bash-completion \
         unzip \
+        net-tools \
         clang-format-14 \
         clangd \
         ccache \
@@ -65,6 +66,8 @@ RUN wget https://github.com/eclipse/mosquitto/archive/refs/tags/v${MOSQUITTO_VER
     && cmake --build build_dir --target install \
     && rm -rf build_dir \
     && rm -rf mosquitto-${MOSQUITTO_VERSION}
+
+RUN ldconfig /usr/local/lib
 
 ##################################################
 # Create the playpen user

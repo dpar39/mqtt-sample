@@ -17,11 +17,11 @@ find_package(eclipse-paho-mqtt-c REQUIRED)
 
 include_directories(include)
 
-add_executable(mqtt-sample
+add_executable(mqtt-client-app
     src/main.cpp
     #src/main.c
     #src/pubsub_opts.c
 )
 
-# target_link_libraries(mqtt-sample eclipse-paho-mqtt-c::paho-mqtt3cs-static m)
-target_link_libraries(mqtt-sample mosquitto_static m ssl crypto) 
+# target_link_libraries(mqtt-client-app eclipse-paho-mqtt-c::paho-mqtt3cs-static m)
+target_link_libraries(mqtt-client-app mosquitto_static m ssl crypto) 

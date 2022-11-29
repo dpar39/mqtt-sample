@@ -85,7 +85,7 @@ void onMessage(struct mosquitto * /*mosq*/, void * /*user_data*/, const struct m
     printf("%s %d %s\n", msg->topic, msg->qos, static_cast<char *>(msg->payload));
 }
 
-const char * getEnvVarOrDefault(const char * var_name, const char * default_val)
+const char * getEnvVarOrDefault(const char * var_name, const char * default_val = nullptr)
 {
     if (auto * value = std::getenv(var_name); value != nullptr) {
         return value;
@@ -108,7 +108,7 @@ void publishSensorData(struct mosquitto * mosq, const char * topic_name)
     int temp = getTemperature();
     snprintf(payload, sizeof(payload), "%d", temp); // NOLINT(cert-err33-c)
 
-    std::cout << "Publishing message " << payload << std::endl;
+    std::cout << "Publishing message: " << payload << std::endl;
     int rc = mosquitto_publish(mosq, nullptr, topic_name, strlen(payload), payload, 0, false);
     if (rc != MOSQ_ERR_SUCCESS) {
         printMosquittoError(rc, "Error publishing");
@@ -130,13 +130,13 @@ void setupSigintHandler(struct sigaction * sa)
 int main(int argc, char * argv[])
 {
     /* Input parameters */
-    const auto * host = getEnvVarOrDefault("IO_HOST", "io.adafruit.com");
+    const auto * host = getEnvVarOrDefault("IO_HOST", "localhost");
     const int port = std::stoi(getEnvVarOrDefault("IO_PORT", "1883"));
-    const auto * username = getEnvVarOrDefault("IO_USER", "dpar39");
-    const auto * password = getEnvVarOrDefault("IO_KEY", nullptr);
-    const auto * publish_topic = getEnvVarOrDefault("IO_PUBLISH_TOPIC", "dpar39/feeds/feed-two");
-    const auto * consume_topic = getEnvVarOrDefault("IO_CONSUME_TOPIC", "dpar39/feeds/feed-one");
-    const int num_messages_to_send = std::stoi(getEnvVarOrDefault("IO_MESSAGE_COUNT", "10"));
+    const auto * username = getEnvVarOrDefault("IO_USER");
+    const auto * password = getEnvVarOrDefault("IO_KEY");
+    const auto * publish_topic = getEnvVarOrDefault("IO_PUBLISH_TOPIC", "publish_feed");
+    const auto * consume_topic = getEnvVarOrDefault("IO_CONSUME_TOPIC", "consume_feed");
+    const int num_messages_to_send = std::stoi(getEnvVarOrDefault("IO_MESSAGE_COUNT", "1"));
     const float message_period_sec = std::stof(getEnvVarOrDefault("IO_MESSAGE_PERIOD_SECONDS", "3.0"));
 
     struct sigaction sa = {};
@@ -161,10 +161,12 @@ int main(int argc, char * argv[])
     mosquitto_message_callback_set(mosq, onMessage);
 
     /* Set username and password before connecting */
-    int rc = mosquitto_username_pw_set(mosq, username, password);
+    if (username && password && strlen(username) && strlen(password)) {
+        mosquitto_username_pw_set(mosq, username, password);
+    }
 
     /* Connect to the MQTT broker */
-    rc = mosquitto_connect(mosq, host, port, 60);
+    int rc = mosquitto_connect(mosq, host, port, 60);
     if (rc != MOSQ_ERR_SUCCESS) {
         mosquitto_destroy(mosq);
         printMosquittoError(rc, "Failed to connect");
