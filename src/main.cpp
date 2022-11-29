@@ -1,19 +1,26 @@
 /*
- * This example shows how to write a client that subscribes to a topic and does
- * not do anything other than handle the messages that are received.
+ Sample application that publish MQTT messages on a timer loop and subscribes for messages on a separate topic
  */
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <mosquitto.h>
 
 #include <unistd.h>
 
 #include <atomic>
+#include <condition_variable>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <thread>
+
+std::atomic_bool StopPublisherLoop = false;
+std::condition_variable SyncConditionVar;
 
 void printMosquittoError(int rc, const char * error_prefix = nullptr)
 {
@@ -26,11 +33,9 @@ void printMosquittoError(int rc, const char * error_prefix = nullptr)
 /* Callback called when the client receives a CONNACK message from the broker. */
 void onConnect(struct mosquitto * mosq, void * user_data, int reason_code)
 {
-    int rc;
     /* Print out the connection result. mosquitto_connack_string() produces an
      * appropriate string for MQTT v3.x clients, the equivalent for MQTT v5.0
-     * clients is mosquitto_reason_string().
-     */
+     * clients is mosquitto_reason_string(). */
     printf("on_connect: %s\n", mosquitto_connack_string(reason_code));
     if (reason_code != 0) {
         /* If the connection fails for any reason, we don't want to keep on
@@ -44,7 +49,7 @@ void onConnect(struct mosquitto * mosq, void * user_data, int reason_code)
      * subscriptions will be recreated when the client reconnects. */
     const char * consume_topic = static_cast<const char *>(user_data);
 
-    rc = mosquitto_subscribe(mosq, nullptr, consume_topic, 1);
+    int rc = mosquitto_subscribe(mosq, nullptr, consume_topic, 1);
     if (rc != MOSQ_ERR_SUCCESS) {
         printMosquittoError(rc, "Error subscribing");
         /* We might as well disconnect if we were unable to subscribe */
@@ -55,13 +60,11 @@ void onConnect(struct mosquitto * mosq, void * user_data, int reason_code)
 /* Callback called when the broker sends a SUBACK in response to a SUBSCRIBE. */
 void onSubscribe(struct mosquitto * mosq, void * /*user_data*/, int /*mid*/, int qos_count, const int * granted_qos)
 {
-    int i;
-    bool have_subscription = false;
-
     /* In this example we only subscribe to a single topic at once, but a
      * SUBSCRIBE can contain many topics at once, so this is one way to check
      * them all. */
-    for (i = 0; i < qos_count; i++) {
+    bool have_subscription = false;
+    for (int i = 0; i < qos_count; i++) {
         printf("on_subscribe: %d:granted qos = %d\n", i, granted_qos[i]);
         if (granted_qos[i] <= 2) {
             have_subscription = true;
@@ -98,32 +101,46 @@ int getTemperature()
 /* This function pretends to read some data from a sensor and publish it.*/
 void publishSensorData(struct mosquitto * mosq, const char * topic_name)
 {
-    char payload[20]; // NOLINT(hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays)
-    int temp;
-    int rc;
+    /* NOLINTNEXTLINE(hicpp-avoid-c-arrays,modernize-avoid-c-arrays,cppcoreguidelines-avoid-c-arrays) */
+    char payload[20];
+
     /* Get our pretend data */
-    temp = getTemperature();
+    int temp = getTemperature();
     snprintf(payload, sizeof(payload), "%d", temp); // NOLINT(cert-err33-c)
 
     std::cout << "Publishing message " << payload << std::endl;
-    rc = mosquitto_publish(mosq, nullptr, topic_name, strlen(payload), payload, 0, false);
+    int rc = mosquitto_publish(mosq, nullptr, topic_name, strlen(payload), payload, 0, false);
     if (rc != MOSQ_ERR_SUCCESS) {
         printMosquittoError(rc, "Error publishing");
     }
 }
 
+void setupSigintHandler(struct sigaction * sa)
+{
+    /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access) */
+    sa->sa_handler = [](int /*sig*/) {
+        StopPublisherLoop = true;
+        SyncConditionVar.notify_all();
+    };
+    sa->sa_flags = 0;
+    sigaction(SIGINT, sa, nullptr);
+    sigaction(SIGTERM, sa, nullptr);
+}
+
 int main(int argc, char * argv[])
 {
-    // Input parameters
+    /* Input parameters */
     const auto * host = getEnvVarOrDefault("IO_HOST", "io.adafruit.com");
     const int port = std::stoi(getEnvVarOrDefault("IO_PORT", "1883"));
     const auto * username = getEnvVarOrDefault("IO_USER", "dpar39");
     const auto * password = getEnvVarOrDefault("IO_KEY", nullptr);
     const auto * publish_topic = getEnvVarOrDefault("IO_PUBLISH_TOPIC", "dpar39/feeds/feed-two");
     const auto * consume_topic = getEnvVarOrDefault("IO_CONSUME_TOPIC", "dpar39/feeds/feed-one");
+    const int num_messages_to_send = std::stoi(getEnvVarOrDefault("IO_MESSAGE_COUNT", "10"));
+    const float message_period_sec = std::stof(getEnvVarOrDefault("IO_MESSAGE_PERIOD_SECONDS", "3.0"));
 
-    struct mosquitto * mosq;
-    int rc;
+    struct sigaction sa = {};
+    setupSigintHandler(&sa);
 
     /* Required before calling other mosquitto functions */
     mosquitto_lib_init();
@@ -131,9 +148,8 @@ int main(int argc, char * argv[])
     /* Create a new client instance.
      * id = NULL -> ask the broker to generate a client id for us
      * clean session = true -> the broker should remove old sessions when we connect
-     * obj = consume_topic -> pass the consume topic name as user data
-     */
-    mosq = mosquitto_new(nullptr, true, (void *)consume_topic);
+     * obj = consume_topic -> pass the consume topic name as user data  */
+    auto * mosq = mosquitto_new(nullptr, true, (void *)consume_topic);
     if (mosq == nullptr) {
         (void)fprintf(stderr, "Error: Out of memory.\n");
         return 1;
@@ -145,33 +161,37 @@ int main(int argc, char * argv[])
     mosquitto_message_callback_set(mosq, onMessage);
 
     /* Set username and password before connecting */
-    rc = mosquitto_username_pw_set(mosq, username, password);
+    int rc = mosquitto_username_pw_set(mosq, username, password);
 
     /* Connect to the MQTT broker */
     rc = mosquitto_connect(mosq, host, port, 60);
     if (rc != MOSQ_ERR_SUCCESS) {
         mosquitto_destroy(mosq);
-        printMosquittoError(rc);
+        printMosquittoError(rc, "Failed to connect");
         return 1;
     }
 
     rc = mosquitto_loop_start(mosq);
     if (rc != MOSQ_ERR_SUCCESS) {
         mosquitto_destroy(mosq);
-        printMosquittoError(rc);
+        printMosquittoError(rc, "Failed to start loop");
         return 1;
     }
 
-    {
-        std::jthread publisher([&] {
-            int num_messages = 0;
-            while (num_messages++ < 10) {
-                publishSensorData(mosq, publish_topic);
-                using namespace std::chrono_literals;
-                std::this_thread::sleep_for(3s);
-            }
-        });
-    }
+    std::thread publisher([&] {
+        int num_messages = 0;
+        std::mutex m;
+        auto start_tp = std::chrono::steady_clock::now();
+        auto period_us = std::chrono::microseconds(static_cast<int64_t>(message_period_sec * 1000000));
+        while ((num_messages_to_send <= 0 || num_messages < num_messages_to_send) && !StopPublisherLoop) {
+            publishSensorData(mosq, publish_topic);
+            ++num_messages;
+            auto sleep_until = start_tp + num_messages * period_us;
+            std::unique_lock lock(m);
+            SyncConditionVar.wait_until(lock, sleep_until, []() -> bool { return StopPublisherLoop; });
+        }
+    });
+    publisher.join();
 
     mosquitto_loop_stop(mosq, true);
     mosquitto_lib_cleanup();
