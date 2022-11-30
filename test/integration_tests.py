@@ -7,8 +7,15 @@ import unittest
 from subprocess import PIPE, Popen
 
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
-MQTT_CLIENT_APP = os.path.join(THIS_DIR, "../build_release/mqtt-client-app")
+REPO_ROOT = os.path.dirname(THIS_DIR)
+MQTT_CLIENT_APP = os.path.join(REPO_ROOT, "build_release/mqtt-client-app")
 MQTT_CLIENT_APP = os.getenv("MQTT_CLIENT_APP", MQTT_CLIENT_APP)
+
+MQTT_PORT = "8883"
+MQTT_CAFILE = os.path.join(REPO_ROOT, "certs/ca.crt")
+MQTT_KEYFILE = os.path.join(REPO_ROOT, "certs/server.key")
+MQTT_CERTFILE = os.path.join(REPO_ROOT, "certs/server.crt")
+MQTT_REQUIRE_CERT = True
 
 
 class Process:
@@ -50,34 +57,51 @@ class Process:
 
 
 def config_mosquitto():
-    mosquitto_conf = """
-
-    """
+    mosquitto_conf = f"""port {MQTT_PORT}
+cafile {MQTT_CAFILE}
+keyfile {MQTT_KEYFILE}
+certfile {MQTT_CERTFILE}
+require_certificate {str(MQTT_REQUIRE_CERT).lower()}
+allow_anonymous true
+"""
     config_file = os.path.join(THIS_DIR, "mosquitto.conf")
     with open(config_file, "w") as fp:
         fp.write(mosquitto_conf)
     return config_file
 
 
-def make_app_env(
-    publish_topic,
-    consume_topic,
-    num_messages_to_send=1,
-    hostname="localhost",
-    port=1883,
-):
+def make_app_env(publish_topic, consume_topic, num_messages_to_send=1, hostname="localhost"):
     env = os.environ.copy()
     env.update(
         {
             "IO_HOST": f"{hostname}",
-            "IO_PORT": f"{port}",
+            "IO_PORT": f"{MQTT_PORT}",
             "IO_PUBLISH_TOPIC": f"{publish_topic}",
             "IO_CONSUME_TOPIC": f"{consume_topic}",
             "IO_MESSAGE_COUNT": f"{num_messages_to_send}",
             "IO_MESSAGE_PERIOD_SECONDS": "0.01",
+            "IO_CAFILE": MQTT_CAFILE,
         }
     )
+    if MQTT_REQUIRE_CERT:
+        env.update(
+            {
+                "IO_CERTFILE": MQTT_CERTFILE,
+                "IO_KEYFILE": MQTT_KEYFILE,
+            }
+        )
     return env
+
+
+def make_mosquitto_app_args(
+    app,
+    topic_name,
+    host="localhost",
+):
+    cmd = f"{app} -t {topic_name} -h {host} -p {MQTT_PORT}  --cafile {MQTT_CAFILE}"
+    if MQTT_REQUIRE_CERT:
+        cmd += f" --cert {MQTT_CERTFILE} --key {MQTT_KEYFILE}"
+    return cmd
 
 
 class Testing(unittest.TestCase):
@@ -99,7 +123,7 @@ class Testing(unittest.TestCase):
         num_messages_to_send = 3
 
         env = make_app_env(publish_topic_name, consume_topic_name, num_messages_to_send)
-        mosquitto_sub = Process(f"mosquitto_sub -t {publish_topic_name} -h localhost")
+        mosquitto_sub = Process(make_mosquitto_app_args("mosquitto_sub", publish_topic_name))
         time.sleep(0.1)
 
         app_process = Process(MQTT_CLIENT_APP, env=env)
@@ -135,8 +159,9 @@ class Testing(unittest.TestCase):
 
         # Send a message to the broker
         mosquitto_pub = Process(
-            f"mosquitto_pub -t {consume_topic_name} -h localhost -m '{sample_message}'"
+            make_mosquitto_app_args("mosquitto_pub", consume_topic_name) + f" -m '{sample_message}'"
         )
+
         mosquitto_pub.wait_for_completion()
         time.sleep(0.1)
 

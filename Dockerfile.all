@@ -83,5 +83,8 @@ RUN mkdir -p $HOME/.vscode-server/extensions
 # Shell preparations
 RUN echo "[[ -f /workspace/.devcontainer/.bashrc ]] && source /workspace/.devcontainer/.bashrc" >> $HOME/.bashrc
 
+# Install black for python formatting
+RUN pip install -U black
+
 ENV CCACHE_DIR /workspace/.ccache
 ENV CCACHE_SIZE 20G

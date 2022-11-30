@@ -139,6 +139,12 @@ int main(int argc, char * argv[])
     const int num_messages_to_send = std::stoi(getEnvVarOrDefault("IO_MESSAGE_COUNT", "1"));
     const float message_period_sec = std::stof(getEnvVarOrDefault("IO_MESSAGE_PERIOD_SECONDS", "3.0"));
 
+    /* TLS */
+    const auto * ca_file = getEnvVarOrDefault("IO_CAFILE");
+    const auto * ca_path = getEnvVarOrDefault("IO_CAPATH");
+    const auto * cert_file = getEnvVarOrDefault("IO_CERTFILE");
+    const auto * key_file = getEnvVarOrDefault("IO_KEYFILE");
+
     struct sigaction sa = {};
     setupSigintHandler(&sa);
 
@@ -163,6 +169,10 @@ int main(int argc, char * argv[])
     /* Set username and password before connecting */
     if (username && password && strlen(username) && strlen(password)) {
         mosquitto_username_pw_set(mosq, username, password);
+    }
+    if (ca_file && cert_file && key_file) {
+        auto lambda = [](char * /*buf*/, int /*size*/, int /*rwflag*/, void * /*userdata*/) -> int { return 0; };
+        mosquitto_tls_set(mosq, ca_file, ca_path, cert_file, key_file, nullptr);
     }
 
     /* Connect to the MQTT broker */
