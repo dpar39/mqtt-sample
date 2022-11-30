@@ -19,6 +19,34 @@ RUN apt-get update --fix-missing \
 
 RUN ln -sf /usr/bin/clang-format-14 /usr/bin/clang-format
 
+# # Build and install paho.mqtt.c
+# ENV PAHO_MQTT_VERSION=1.3.11
+# RUN wget https://github.com/eclipse/paho.mqtt.c/archive/refs/tags/v${PAHO_MQTT_VERSION}.tar.gz -O - |tar -zx \
+#     && cmake -G Ninja -Bbuild_dir \
+#         -DPAHO_WITH_SSL=TRUE  \
+#         -DPAHO_BUILD_STATIC=TRUE  \
+#         -DPAHO_BUILD_SHARED=FALSE  \
+#         -DPAHO_ENABLE_TESTING=FALSE \
+#         paho.mqtt.c-${PAHO_MQTT_VERSION} \
+#     && cmake --build build_dir \
+#     && cmake --build build_dir --target install \
+#     && rm -rf build_dir \
+#     && rm -rf paho.mqtt.c-${PAHO_MQTT_VERSION}
+
+# # Build and install cJSON
+# ENV CJSON_VERSION=1.7.15
+# RUN wget https://github.com/DaveGamble/cJSON/archive/refs/tags/v${CJSON_VERSION}.tar.gz -O - |tar -zx \
+#     && cmake -G Ninja -Bbuild_dir \
+#         -DENABLE_CJSON_TEST=OFF  \
+#         -DENABLE_CJSON_UTILS=OFF \
+#         -DBUILD_SHARED_AND_STATIC_LIBS=ON  \
+#         -DBUILD_SHARED_LIBS=OFF  \
+#         cJSON-${CJSON_VERSION} \
+#     && cmake --build build_dir \
+#     && cmake --build build_dir --target install \
+#     && rm -rf build_dir \
+#     && rm -rf cJSON-${CJSON_VERSION}
+
 # Build and install mosquitto
 ENV MOSQUITTO_VERSION=2.0.15
 RUN wget https://github.com/eclipse/mosquitto/archive/refs/tags/v${MOSQUITTO_VERSION}.tar.gz -O - |tar -zx \
