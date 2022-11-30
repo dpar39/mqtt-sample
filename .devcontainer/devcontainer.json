@@ -1,6 +1,6 @@
 {
     "name": "cxx-devenv",
-    "dockerFile": "../Dockerfile.devenv",
+    "dockerFile": "../Dockerfile.all",
     "context": "..",
     "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",
@@ -28,6 +28,7 @@
     ],
     "postCreateCommand": "sudo chown -R ${env:USER} /workspace",
     "build": {
+        "target": "devcontainer",
         "args": {
             "USER_NAME": "${env:USER}",
             "USER_UID": "${env:USER_UID}",

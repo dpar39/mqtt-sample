@@ -1,0 +1,87 @@
+FROM ubuntu:22.04 as base
+
+# System packages that facilitate the build process
+RUN apt-get update --fix-missing \
+    && DEBIAN_FRONTEND="noninteractive" apt-get -y  --no-install-recommends install \
+        libssl-dev \
+        wget \
+        cmake \
+        g++ \
+        ninja-build \
+        python3 \
+        python3-pip \
+        python-is-python3 \
+        lsb-release \
+        clang-format-14 \
+        protobuf-compiler \
+        software-properties-common \
+    && apt-get clean
+
+RUN ln -sf /usr/bin/clang-format-14 /usr/bin/clang-format
+
+# Build and install mosquitto
+ENV MOSQUITTO_VERSION=2.0.15
+RUN wget https://github.com/eclipse/mosquitto/archive/refs/tags/v${MOSQUITTO_VERSION}.tar.gz -O - |tar -zx \
+    && cmake -G Ninja -Bbuild_dir \
+        -DDOCUMENTATION=OFF \
+        -DWITH_STATIC_LIBRARIES=ON  \
+        -DWITH_PIC=ON  \        
+        mosquitto-${MOSQUITTO_VERSION} \
+    && cmake --build build_dir \
+    && cmake --build build_dir --target install \
+    && rm -rf build_dir \
+    && rm -rf mosquitto-${MOSQUITTO_VERSION}
+
+RUN ldconfig /usr/local/lib
+
+##################################################
+# builder image
+##################################################
+FROM base as builder
+ARG USER_NAME
+ARG USER_UID
+ARG USER_GID
+
+ENV HOME=/home/$USER_NAME
+RUN groupadd --gid $USER_GID $USER_NAME; exit 0
+RUN useradd --uid $USER_UID --gid $USER_GID -m $USER_NAME -s /bin/bash \
+    && chown -R $USER_NAME $HOME
+
+USER ${USER_NAME}
+
+##################################################
+# devcontainer image
+##################################################
+FROM base as devcontainer
+
+RUN apt-get update --fix-missing \
+    && DEBIAN_FRONTEND="noninteractive" apt-get -y install \
+        git \
+        software-properties-common \
+        bash-completion \
+        net-tools \
+        clangd \
+        sudo \
+    && apt-get clean
+
+ARG USER_NAME
+ARG USER_UID
+ARG USER_GID
+
+ENV HOME=/home/$USER_NAME
+RUN groupadd --gid $USER_GID $USER_NAME; exit 0
+RUN useradd --uid $USER_UID --gid $USER_GID -m $USER_NAME \
+    && echo $USER_NAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USER_NAME \
+    && chmod 0440 /etc/sudoers.d/$USER_NAME \
+    && chown -R $USER_NAME $HOME
+
+USER ${USER_NAME}
+
+# VSCode preparations
+RUN mkdir -p $HOME/.vscode-server/extensions
+
+# Shell preparations
+RUN echo "[[ -f /workspace/.devcontainer/.bashrc ]] && source /workspace/.devcontainer/.bashrc" >> $HOME/.bashrc
+
+ENV CCACHE_DIR /workspace/.ccache
+ENV CCACHE_SIZE 20G

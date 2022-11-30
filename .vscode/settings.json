@@ -8,7 +8,7 @@
     "cSpell.customDictionaries": {
         "project-words": {
             "name": "project-words",
-            "path": "${workspaceRoot}/project-words.txt",
+            "path": "${workspaceRoot}/.vscode/project-words.txt",
             "description": "Words used in this project",
             "addWords": true
           },

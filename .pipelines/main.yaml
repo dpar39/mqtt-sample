@@ -1,0 +1,20 @@
+trigger:
+  - main
+
+pr:
+  branches:
+    include:
+      - "main"
+
+stages:
+- stage: build
+  jobs:
+  - job: build
+    pool:
+      vmImage: 'ubuntu-22.04'
+    steps:
+    - task: Bash@3
+      displayName: Build application
+      inputs:
+        filePath: dock.sh
+        arguments: ./ci-all.sh

@@ -3,3 +3,4 @@
 .ccache/
 
 build_*
+mosquitto.conf

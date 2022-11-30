@@ -13,7 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc")
 
 find_package(OpenSSL REQUIRED)
-find_package(eclipse-paho-mqtt-c REQUIRED)
+# find_package(eclipse-paho-mqtt-c REQUIRED)
 
 include_directories(include)
 

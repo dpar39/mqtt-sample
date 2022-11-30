@@ -7,7 +7,8 @@ import unittest
 from subprocess import PIPE, Popen
 
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
-MQTT_CLIENT_APP = os.path.join(THIS_DIR, "../build_debug/mqtt-client-app")
+MQTT_CLIENT_APP = os.path.join(THIS_DIR, "../build_release/mqtt-client-app")
+MQTT_CLIENT_APP = os.getenv("MQTT_CLIENT_APP", MQTT_CLIENT_APP)
 
 
 class Process:
