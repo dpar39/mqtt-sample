@@ -132,6 +132,7 @@ int main(int argc, char * argv[])
     /* Input parameters */
     const auto * host = getEnvVarOrDefault("IO_HOST", "localhost");
     const int port = std::stoi(getEnvVarOrDefault("IO_PORT", "1883"));
+    const auto * device_id = getEnvVarOrDefault("IO_DEVICE_ID", "darien-pubsub-client");
     const auto * username = getEnvVarOrDefault("IO_USER");
     const auto * password = getEnvVarOrDefault("IO_KEY");
     const auto * publish_topic = getEnvVarOrDefault("IO_PUBLISH_TOPIC", "publish_feed");
@@ -152,10 +153,10 @@ int main(int argc, char * argv[])
     mosquitto_lib_init();
 
     /* Create a new client instance.
-     * id = NULL -> ask the broker to generate a client id for us
+     * id = device id that is registered with the broker
      * clean session = true -> the broker should remove old sessions when we connect
      * obj = consume_topic -> pass the consume topic name as user data  */
-    auto * mosq = mosquitto_new(nullptr, true, (void *)consume_topic);
+    auto * mosq = mosquitto_new(device_id, true, (void *)consume_topic);
     if (mosq == nullptr) {
         (void)fprintf(stderr, "Error: Out of memory.\n");
         return 1;
@@ -170,7 +171,7 @@ int main(int argc, char * argv[])
     if (username && password && strlen(username) && strlen(password)) {
         mosquitto_username_pw_set(mosq, username, password);
     }
-    if (ca_file && cert_file && key_file) {
+    if (ca_file || ca_path || cert_file || key_file) {
         auto lambda = [](char * /*buf*/, int /*size*/, int /*rwflag*/, void * /*userdata*/) -> int { return 0; };
         mosquitto_tls_set(mosq, ca_file, ca_path, cert_file, key_file, nullptr);
     }

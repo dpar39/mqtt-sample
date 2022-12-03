@@ -116,7 +116,7 @@ class Testing(unittest.TestCase):
     def tearDownClass(cls):
         cls.broker_process.interrupt()
 
-    def test_can_published_messages_to_broker(self):
+    def test_can_publish_messages_to_broker(self):
 
         publish_topic_name = "publish_feed"
         consume_topic_name = "consume_feed"
