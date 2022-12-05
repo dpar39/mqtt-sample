@@ -60,7 +60,7 @@ void onConnect(struct mosquitto * mosq, void * user_data, int reason_code)
 }
 
 /* Callback called when the broker sends a SUBACK in response to a SUBSCRIBE. */
-void onSubscribe(struct mosquitto * mosq, void * /*user_data*/, int /*mid*/, int qos_count, const int * granted_qos)
+void onSubscribe(struct mosquitto * mosq, void * user_data, int /*mid*/, int qos_count, const int * granted_qos)
 {
     /* In this example we only subscribe to a single topic at once, but a
      * SUBSCRIBE can contain many topics at once, so this is one way to check
@@ -77,6 +77,9 @@ void onSubscribe(struct mosquitto * mosq, void * /*user_data*/, int /*mid*/, int
          * the one SUBSCRIBE, so there is no point remaining connected. */
         printMosquittoError(0, "Error: All subscriptions rejected.");
         mosquitto_disconnect(mosq);
+    } else {
+        const char * consume_topic = static_cast<const char *>(user_data);
+        std::cout << "Subscribed successfully to topic " << consume_topic << std::endl;
     }
     IsSubscribed = have_subscription;
     OnSubscribedCondVar.notify_all();
@@ -199,6 +202,7 @@ int main(int argc, char * argv[])
     }
 
     /* Connect to the MQTT broker */
+    std::cout << "Connecting to " << host << ":" << port << " ..." << std::endl;
     int rc = mosquitto_connect(mosq, host, port, 60);
     if (rc != MOSQ_ERR_SUCCESS) {
         mosquitto_destroy(mosq);
@@ -240,7 +244,10 @@ int main(int argc, char * argv[])
     });
     publisher.join();
 
+    std::cout << "Stopping publisher timer ..." << std::endl;
     mosquitto_loop_stop(mosq, true);
+    std::cout << "Cleaning up mosquitto client ..." << std::endl;
     mosquitto_lib_cleanup();
+    std::cout << "Done!" << std::endl;
     return 0;
 }

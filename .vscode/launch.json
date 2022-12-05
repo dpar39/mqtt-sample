@@ -44,7 +44,7 @@
                 "IO_PUBLISH_TOPIC": "samples/topic",
                 "IO_CONSUME_TOPIC": "samples/topic",
                 "IO_MESSAGE_COUNT": "3",
-                "IO_MESSAGE_PERIOD_SECONDS": "1",
+                "IO_MESSAGE_PERIOD_SECONDS": "1.0",
                 "IO_CERTFILE": "${workspaceFolder}/certs-david/darien-pubsub-client.cert.pem",
                 "IO_KEYFILE": "${workspaceFolder}/certs-david/darien-pubsub-client.key.pem",
                 "IO_CAPATH": "/etc/ssl/certs/"
