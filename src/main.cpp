@@ -2,16 +2,15 @@
  Sample application that publish MQTT messages on a timer loop and subscribes for messages on a separate topic
  */
 
-#include <chrono>
-#include <cstddef>
-#include <cstdint>
 #include <mosquitto.h>
-
 #include <unistd.h>
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <csignal>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -20,7 +19,9 @@
 #include <thread>
 
 std::atomic_bool StopPublisherLoop = false;
-std::condition_variable SyncConditionVar;
+std::atomic_bool IsSubscribed = false;
+std::condition_variable OnStoppingCondVar;
+std::condition_variable OnSubscribedCondVar;
 
 void printMosquittoError(int rc, const char * error_prefix = nullptr)
 {
@@ -41,6 +42,7 @@ void onConnect(struct mosquitto * mosq, void * user_data, int reason_code)
         /* If the connection fails for any reason, we don't want to keep on
          * retrying in this example, so disconnect. Without this, the client
          * will attempt to reconnect. */
+        std::cerr << "Unable to connect: reason_code=" << reason_code << std::endl;
         mosquitto_disconnect(mosq);
     }
 
@@ -76,6 +78,8 @@ void onSubscribe(struct mosquitto * mosq, void * /*user_data*/, int /*mid*/, int
         printMosquittoError(0, "Error: All subscriptions rejected.");
         mosquitto_disconnect(mosq);
     }
+    IsSubscribed = have_subscription;
+    OnSubscribedCondVar.notify_all();
 }
 
 /* Callback called when the client receives a message. */
@@ -83,6 +87,11 @@ void onMessage(struct mosquitto * /*mosq*/, void * /*user_data*/, const struct m
 {
     /* This blindly prints the payload, but the payload can be anything so take care. */
     printf("%s %d %s\n", msg->topic, msg->qos, static_cast<char *>(msg->payload));
+}
+
+void onDisconnect(struct mosquitto * /*mosq*/, void * /*user_data*/, int reason_code)
+{
+    std::cout << "Disconnected: reason_code=" << reason_code << std::endl;
 }
 
 const char * getEnvVarOrDefault(const char * var_name, const char * default_val = nullptr)
@@ -120,7 +129,7 @@ void setupSigintHandler(struct sigaction * sa)
     /* NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access) */
     sa->sa_handler = [](int /*sig*/) {
         StopPublisherLoop = true;
-        SyncConditionVar.notify_all();
+        OnStoppingCondVar.notify_all();
     };
     sa->sa_flags = 0;
     sigaction(SIGINT, sa, nullptr);
@@ -145,6 +154,7 @@ int main(int argc, char * argv[])
     const auto * ca_path = getEnvVarOrDefault("IO_CAPATH");
     const auto * cert_file = getEnvVarOrDefault("IO_CERTFILE");
     const auto * key_file = getEnvVarOrDefault("IO_KEYFILE");
+    const auto * pass_phrase = getEnvVarOrDefault("IO_PASSPHRASE");
 
     struct sigaction sa = {};
     setupSigintHandler(&sa);
@@ -166,14 +176,26 @@ int main(int argc, char * argv[])
     mosquitto_connect_callback_set(mosq, onConnect);
     mosquitto_subscribe_callback_set(mosq, onSubscribe);
     mosquitto_message_callback_set(mosq, onMessage);
+    mosquitto_disconnect_callback_set(mosq, onDisconnect);
 
     /* Set username and password before connecting */
     if (username && password && strlen(username) && strlen(password)) {
         mosquitto_username_pw_set(mosq, username, password);
     }
-    if (ca_file || ca_path || cert_file || key_file) {
-        auto lambda = [](char * /*buf*/, int /*size*/, int /*rwflag*/, void * /*userdata*/) -> int { return 0; };
-        mosquitto_tls_set(mosq, ca_file, ca_path, cert_file, key_file, nullptr);
+
+    int ver = MQTT_PROTOCOL_V311;
+    mosquitto_opts_set(mosq, MOSQ_OPT_PROTOCOL_VERSION, &ver);
+
+    if ((ca_file || ca_path)) {
+        auto lambda = [](char * buf, int /*size*/, int /*rwflag*/, void * /*userdata*/) -> int {
+            const auto * pass_phrase = getEnvVarOrDefault("IO_PASSPHRASE");
+            if (pass_phrase) {
+                strcpy(buf, pass_phrase);
+                return strlen(pass_phrase);
+            }
+            return 0;
+        };
+        mosquitto_tls_set(mosq, ca_file, ca_path, cert_file, key_file, lambda);
     }
 
     /* Connect to the MQTT broker */
@@ -191,13 +213,21 @@ int main(int argc, char * argv[])
         return 1;
     }
 
+    std::mutex m;
+    std::unique_lock lk(m);
+    using namespace std::chrono_literals;
+    if (!OnSubscribedCondVar.wait_for(lk, 5s, []() -> bool { return IsSubscribed; })) {
+        std::cerr << "Unable to connect and subscribe to the specified topic" << std::endl;
+        return 1;
+    };
+
     std::thread publisher([&] {
         int num_messages = 0;
         std::mutex m;
         auto period_us = std::chrono::microseconds(static_cast<int64_t>(message_period_sec * 1000000));
         {
             std::unique_lock lk(m);
-            SyncConditionVar.wait_for(lk, period_us, []() -> bool { return StopPublisherLoop; });
+            OnStoppingCondVar.wait_for(lk, period_us, []() -> bool { return StopPublisherLoop; });
         }
         auto start_tp = std::chrono::steady_clock::now();
         while ((num_messages_to_send <= 0 || num_messages < num_messages_to_send) && !StopPublisherLoop) {
@@ -205,7 +235,7 @@ int main(int argc, char * argv[])
             ++num_messages;
             auto sleep_until = start_tp + num_messages * period_us;
             std::unique_lock lk(m);
-            SyncConditionVar.wait_until(lk, sleep_until, []() -> bool { return StopPublisherLoop; });
+            OnStoppingCondVar.wait_until(lk, sleep_until, []() -> bool { return StopPublisherLoop; });
         }
     });
     publisher.join();

@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: publish",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/MQTTBrokerPrivatePreview/Scenario0_Hello_World/publish.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYTHONPATH": "/workspace/MQTTBrokerPrivatePreview/python"
+            }
+        },
+        {
             "type": "lldb",
             "request": "launch",
             "name": "Debug mqtt-client-app",
@@ -15,16 +26,28 @@
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "Build Code Debug",
             "args": [],
+            // "env": {
+            //     "IO_HOST": "localhost",
+            //     "IO_PORT": "8883",
+            //     "IO_PUBLISH_TOPIC": "publish_topic",
+            //     "IO_CONSUME_TOPIC": "consume_topic",
+            //     "IO_MESSAGE_COUNT": "3",
+            //     "IO_MESSAGE_PERIOD_SECONDS": "0.9",
+            //     "IO_CAFILE": "/workspace/certs/ca.crt",
+            //     "IO_CERTFILE": "/workspace/certs/server.crt",
+            //     "IO_KEYFILE": "/workspace/certs/server.key",
+            // },
             "env": {
-                "IO_HOST": "localhost",
+                "IO_DEVICE_ID": "darien-pubsub-client",
+                "IO_HOST": "mqtt-sample0-testmqtt.centraluseuap-1.ts.eventgrid.azure.net",
                 "IO_PORT": "8883",
-                "IO_PUBLISH_TOPIC": "publish_topic",
-                "IO_CONSUME_TOPIC": "consume_topic",
+                "IO_PUBLISH_TOPIC": "samples/topic",
+                "IO_CONSUME_TOPIC": "samples/topic",
                 "IO_MESSAGE_COUNT": "3",
-                "IO_MESSAGE_PERIOD_SECONDS": "0.9",
-                "IO_CAFILE": "/workspace/certs/ca.crt",
-                "IO_CERTFILE": "/workspace/certs/server.crt",
-                "IO_KEYFILE": "/workspace/certs/server.key",
+                "IO_MESSAGE_PERIOD_SECONDS": "1",
+                "IO_CERTFILE": "${workspaceFolder}/certs-david/darien-pubsub-client.cert.pem",
+                "IO_KEYFILE": "${workspaceFolder}/certs-david/darien-pubsub-client.key.pem",
+                "IO_CAPATH": "/etc/ssl/certs/"
             }
         }
     ]
